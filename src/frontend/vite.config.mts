@@ -12,7 +12,10 @@ import {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
-  const apiRoutes = API_ROUTES || ["^/api/v1/", "/health"];
+  const apiRoutes = API_ROUTES || [
+    `${env.LANGFLOW_ROOT_PATH || ""}/api/v1/`,
+    `${env.LANGFLOW_ROOT_PATH || ""}/health`
+  ];
 
   const target =
     env.VITE_PROXY_TARGET || PROXY_TARGET || "http://127.0.0.1:7860";
