@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import command, util
 from alembic.config import Config
 from loguru import logger
-from sqlalchemy import AsyncAdaptedQueuePool, event, exc, inspect, NullPool
+from sqlalchemy import AsyncAdaptedQueuePool, event, exc, inspect, NullPool, SingletonThreadPool, StaticPool, AssertionPool, FallbackAsyncAdaptedQueuePool
 from sqlalchemy.dialects import sqlite as dialect_sqlite
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
@@ -33,7 +33,15 @@ from langflow.services.utils import teardown_superuser
 
 if TYPE_CHECKING:
     from langflow.services.settings.service import SettingsService
-
+    
+pool_class_mapping = {
+    "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
+    "NullPool": NullPool,
+    "SingletonThreadPool": SingletonThreadPool,
+    "StaticPool": StaticPool,
+    "AssertionPool": AssertionPool,
+    "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
+}
 
 class DatabaseService(Service):
     name = "database_service"
@@ -116,12 +124,13 @@ class DatabaseService(Service):
         # if the user specifies an empty dict, we allow it.
         kwargs = self._build_connection_kwargs()
 
+
         if url_components[0].startswith("sqlite"):
             scheme = "sqlite+aiosqlite"
-            kwargs['poolclass'] = AsyncAdaptedQueuePool if kwargs.get('poolclass') is None else kwargs['poolclass']
+            kwargs['poolclass'] = pool_class_mapping[kwargs.get('poolclass')] if kwargs.get('poolclass') else AsyncAdaptedQueuePool
         else:
             scheme = "postgresql+psycopg" if url_components[0].startswith("postgresql") else url_components[0]
-            kwargs['poolclass'] = NullPool if kwargs.get('poolclass') is None else kwargs['poolclass']
+            kwargs['poolclass'] = pool_class_mapping[kwargs.get('poolclass')] if kwargs.get('poolclass') else NullPool
 
         database_url = f"{scheme}://{url_components[1]}"
         return create_async_engine(
