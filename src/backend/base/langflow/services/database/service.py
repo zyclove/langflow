@@ -14,7 +14,17 @@ import sqlalchemy as sa
 from alembic import command, util
 from alembic.config import Config
 from loguru import logger
-from sqlalchemy import AsyncAdaptedQueuePool, event, exc, inspect, NullPool, SingletonThreadPool, StaticPool, AssertionPool, FallbackAsyncAdaptedQueuePool
+from sqlalchemy import (
+    AssertionPool,
+    AsyncAdaptedQueuePool,
+    FallbackAsyncAdaptedQueuePool,
+    NullPool,
+    SingletonThreadPool,
+    StaticPool,
+    event,
+    exc,
+    inspect,
+)
 from sqlalchemy.dialects import sqlite as dialect_sqlite
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
@@ -33,7 +43,7 @@ from langflow.services.utils import teardown_superuser
 
 if TYPE_CHECKING:
     from langflow.services.settings.service import SettingsService
-    
+
 pool_class_mapping = {
     "AssertionPool": AssertionPool,
     "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
@@ -42,6 +52,7 @@ pool_class_mapping = {
     "SingletonThreadPool": SingletonThreadPool,
     "StaticPool": StaticPool,
 }
+
 
 class DatabaseService(Service):
     name = "database_service"
@@ -124,18 +135,20 @@ class DatabaseService(Service):
         # if the user specifies an empty dict, we allow it.
         kwargs = self._build_connection_kwargs()
 
-        poolclass_key = kwargs.get('poolclass')
+        poolclass_key = kwargs.get("poolclass")
         default_poolclass = AsyncAdaptedQueuePool if url_components[0].startswith("sqlite") else NullPool
 
         if poolclass_key is None:
             logger.debug(f"No poolclass specified. Using default pool class: {default_poolclass}.")
-            kwargs['poolclass'] = default_poolclass
+            kwargs["poolclass"] = default_poolclass
         elif poolclass_key not in pool_class_mapping:
-            logger.error(f"Invalid poolclass '{poolclass_key}' specified. Using default pool class: {default_poolclass}.")
-            kwargs['poolclass'] = default_poolclass
+            logger.error(
+                f"Invalid poolclass '{poolclass_key}' specified. Using default pool class: {default_poolclass}."
+            )
+            kwargs["poolclass"] = default_poolclass
         else:
             logger.debug(f"Using poolclass: {poolclass_key}.")
-            kwargs['poolclass'] = pool_class_mapping[poolclass_key]
+            kwargs["poolclass"] = pool_class_mapping[poolclass_key]
 
         if url_components[0].startswith("sqlite"):
             scheme = "sqlite+aiosqlite"
@@ -158,16 +171,16 @@ class DatabaseService(Service):
 
     def _get_connect_args(self):
         settings = self.settings_service.settings
-        
+
         if settings.db_driver_connection_settings is not None:
             return settings.db_driver_connection_settings
-            
+
         if settings.database_url and settings.database_url.startswith("sqlite"):
             return {
                 "check_same_thread": False,
                 "timeout": settings.db_connect_timeout,
             }
-            
+
         return {}
 
     def on_connection(self, dbapi_connection, _connection_record) -> None:
