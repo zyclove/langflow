@@ -92,9 +92,6 @@ class Settings(BaseSettings):
     """Database driver connection settings."""
 
     db_connection_settings: dict | None = {
-        "pool_size": 10,
-        "max_overflow": 20,
-        "pool_timeout": 30,
         "pool_pre_ping": True,
     }
     """Common database connection settings."""
