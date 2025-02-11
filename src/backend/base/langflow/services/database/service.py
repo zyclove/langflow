@@ -35,12 +35,12 @@ if TYPE_CHECKING:
     from langflow.services.settings.service import SettingsService
     
 pool_class_mapping = {
+    "AssertionPool": AssertionPool,
     "AsyncAdaptedQueuePool": AsyncAdaptedQueuePool,
+    "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
     "NullPool": NullPool,
     "SingletonThreadPool": SingletonThreadPool,
     "StaticPool": StaticPool,
-    "AssertionPool": AssertionPool,
-    "FallbackAsyncAdaptedQueuePool": FallbackAsyncAdaptedQueuePool,
 }
 
 class DatabaseService(Service):
@@ -124,13 +124,25 @@ class DatabaseService(Service):
         # if the user specifies an empty dict, we allow it.
         kwargs = self._build_connection_kwargs()
 
+        poolclass_key = kwargs.get('poolclass')
+        default_poolclass = AsyncAdaptedQueuePool if url_components[0].startswith("sqlite") else NullPool
+
+        if poolclass_key is None:
+            logger.debug(f"No poolclass specified. Using default pool class: {default_poolclass}.")
+            kwargs['poolclass'] = default_poolclass
+        elif poolclass_key not in pool_class_mapping:
+            logger.error(f"Invalid poolclass '{poolclass_key}' specified. Using default pool class: {default_poolclass}.")
+            kwargs['poolclass'] = default_poolclass
+        else:
+            logger.debug(f"Using poolclass: {poolclass_key}.")
+            kwargs['poolclass'] = pool_class_mapping[poolclass_key]
 
         if url_components[0].startswith("sqlite"):
             scheme = "sqlite+aiosqlite"
-            kwargs['poolclass'] = pool_class_mapping[kwargs.get('poolclass')] if kwargs.get('poolclass') else AsyncAdaptedQueuePool
+        elif url_components[0].startswith("postgresql"):
+            scheme = "postgresql+psycopg"
         else:
-            scheme = "postgresql+psycopg" if url_components[0].startswith("postgresql") else url_components[0]
-            kwargs['poolclass'] = pool_class_mapping[kwargs.get('poolclass')] if kwargs.get('poolclass') else NullPool
+            scheme = url_components[0]
 
         database_url = f"{scheme}://{url_components[1]}"
         return create_async_engine(
