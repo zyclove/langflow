@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import command, util
 from alembic.config import Config
 from loguru import logger
-from sqlalchemy import AsyncAdaptedQueuePool, event, exc, inspect
+from sqlalchemy import AsyncAdaptedQueuePool, event, exc, inspect, NullPool
 from sqlalchemy.dialects import sqlite as dialect_sqlite
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
@@ -118,19 +118,15 @@ class DatabaseService(Service):
 
         if url_components[0].startswith("sqlite"):
             scheme = "sqlite+aiosqlite"
-            # Even though the docs say this is the default, it raises an error
-            # if we don't specify it.
-            # https://docs.sqlalchemy.org/en/20/errors.html#pool-class-cannot-be-used-with-asyncio-engine-or-vice-versa
-            pool = AsyncAdaptedQueuePool
+            kwargs['poolclass'] = AsyncAdaptedQueuePool if kwargs.get('poolclass') is None else kwargs['poolclass']
         else:
             scheme = "postgresql+psycopg" if url_components[0].startswith("postgresql") else url_components[0]
-            pool = None
+            kwargs['poolclass'] = NullPool if kwargs.get('poolclass') is None else kwargs['poolclass']
 
         database_url = f"{scheme}://{url_components[1]}"
         return create_async_engine(
             database_url,
             connect_args=self._get_connect_args(),
-            poolclass=pool,
             **kwargs,
         )
 
